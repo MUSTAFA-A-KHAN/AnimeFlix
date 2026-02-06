@@ -1,7 +1,7 @@
 import './style.css';
 
 // API Configuration - Prioritize local development server, fallback to external API
-const API_LOCAL = 'http://localhost:3000';
+const API_LOCAL = 'https://ttt-mauve-rho.vercel.app';
 const API_EXTERNAL = 'https://ttt-mauve-rho.vercel.app';
 
 // Auto-detect API base - try local first, fallback to external
@@ -10,12 +10,12 @@ const API_ROOT = API_LOCAL;
 // Provider configuration for different anime providers
 const PROVIDERS = {
   animekai: {
-    base: API_ROOT + '/anime/hianime',  // Note: using /anime/hianime endpoint
+    base: API_ROOT + '/anime/animekai',  // Note: using /anime/hianime endpoint
     templates: {
-      search: API_ROOT + '/anime/hianime/{query}',
-      info: API_ROOT + '/anime/hianime/info?id={id}',
-      episodes: API_ROOT + '/anime/hianime/episodes/{id}',
-      watch: API_ROOT + '/anime/hianime/watch/{id}'
+      search: API_ROOT + '/anime/animekai/{query}',
+      info: API_ROOT + '/anime/animekai/info?id={id}',
+      episodes: API_ROOT + '/anime/animekai/episodes/{id}',
+      watch: API_ROOT + '/anime/animekai/watch/{id}'
     }
   },
   animepahe: {

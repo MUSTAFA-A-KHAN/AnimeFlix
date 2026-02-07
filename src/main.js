@@ -474,7 +474,13 @@ async function selectEpisode(episodeId, episodeNumber) {
   const provider = providerSelect.value;
   
   try {
-    serversContainer.innerHTML = '<p>Loading servers...</p>';
+    // Show loading indicator but keep container structure
+    serversContainer.innerHTML = `
+      <h3>Servers for Episode ${episodeNumber || '?'}</h3>
+      <p class="loading-servers" style="padding: 20px; text-align: center; color: var(--accent);">
+        <span class="loading-spinner"></span> Loading servers...
+      </p>
+    `;
     
     // Handle hianime-scrap - uses servers endpoint with id param and stream endpoint
     if (provider === 'hianime-scrap') {
@@ -495,6 +501,9 @@ async function selectEpisode(episodeId, episodeNumber) {
       
       const data = await safeFetch(serversUrl);
       displayHianimeScrapServers(data, actualEpisodeNumber || episodeNumber || '1', episodeId);
+      
+      // Auto-scroll to servers section
+      serversContainer.scrollIntoView({ behavior: 'smooth' });
       return;
     }
     
@@ -505,6 +514,9 @@ async function selectEpisode(episodeId, episodeNumber) {
       
       const data = await safeFetch(watchUrl);
       displayServers(data, episodeNumber || '1');
+      
+      // Auto-scroll to servers section
+      serversContainer.scrollIntoView({ behavior: 'smooth' });
       return;
     }
     
@@ -515,6 +527,9 @@ async function selectEpisode(episodeId, episodeNumber) {
       
       const data = await safeFetch(watchUrl);
       displayServers(data, episodeNumber || '1');
+      
+      // Auto-scroll to servers section
+      serversContainer.scrollIntoView({ behavior: 'smooth' });
       return;
     }
     
@@ -524,6 +539,9 @@ async function selectEpisode(episodeId, episodeNumber) {
     
     const data = await safeFetch(serversUrl);
     displayServers(data, episodeNumber || '1');
+    
+    // Auto-scroll to servers section
+    serversContainer.scrollIntoView({ behavior: 'smooth' });
     
   } catch (error) {
     console.error('Servers error:', error);
@@ -713,18 +731,50 @@ window.playHianimeScrapStream = async function(serverId, serverType, serverName)
   console.log('Stream URL:', streamUrl);
   
   try {
-    serversContainer.innerHTML = '<p>Loading stream...</p>';
+    // Show loading indicator but keep server list visible
+    let loadingEl = serversContainer.querySelector('.stream-loading');
+    if (!loadingEl) {
+      loadingEl = document.createElement('p');
+      loadingEl.className = 'stream-loading';
+      loadingEl.innerHTML = '<span class="loading-spinner"></span> Loading stream...';
+      loadingEl.style.cssText = 'padding: 20px; text-align: center; color: var(--accent);';
+      serversContainer.prepend(loadingEl);
+    }
     
     const data = await safeFetch(streamUrl);
+    
+    // Remove loading indicator
+    if (loadingEl && loadingEl.parentNode) {
+      loadingEl.parentNode.removeChild(loadingEl);
+    }
     
     if (data && data.success && data.data) {
       displayHianimeScrapStream(data.data, serverName);
     } else {
-      serversContainer.innerHTML = '<p class="error">Failed to load stream. Try a different server.</p>';
+      // Show error but keep server list visible
+      let errorEl = serversContainer.querySelector('.stream-error');
+      if (!errorEl) {
+        errorEl = document.createElement('p');
+        errorEl.className = 'stream-error error';
+        errorEl.textContent = 'Failed to load stream. Try a different server.';
+        serversContainer.prepend(errorEl);
+      }
     }
   } catch (error) {
     console.error('Stream error:', error);
-    serversContainer.innerHTML = `<p class="error">Error loading stream: ${error.message}</p>`;
+    // Remove loading indicator
+    const loadingEl = serversContainer.querySelector('.stream-loading');
+    if (loadingEl && loadingEl.parentNode) {
+      loadingEl.parentNode.removeChild(loadingEl);
+    }
+    // Show error but keep server list visible
+    let errorEl = serversContainer.querySelector('.stream-error');
+    if (!errorEl) {
+      errorEl = document.createElement('p');
+      errorEl.className = 'stream-error error';
+      errorEl.textContent = `Error loading stream: ${error.message}`;
+      serversContainer.prepend(errorEl);
+    }
   }
 };
 
@@ -736,16 +786,32 @@ function displayHianimeScrapStream(streamData, serverName) {
   const outro = streamData.outro || { start: 0, end: 0 };
   
   if (!videoUrl) {
-    serversContainer.innerHTML = '<p class="error">No video URL available</p>';
+    // Show error but keep server list visible
+    const existingError = serversContainer.querySelector('.stream-error');
+    if (!existingError) {
+      const errorDiv = document.createElement('p');
+      errorDiv.className = 'stream-error error';
+      errorDiv.textContent = 'No video URL available';
+      serversContainer.prepend(errorDiv);
+    }
     return;
   }
   
-  // Create video player container
+  // Create video player container - prepend to keep server list visible below
   let player = document.getElementById('videoPlayer');
   if (!player) {
     player = document.createElement('div');
     player.id = 'videoPlayer';
+    player.className = 'video-player-section';
     player.style.marginBottom = '20px';
+    // Prepend to keep server list visible
+    const existingPlayer = serversContainer.querySelector('#videoPlayer');
+    if (existingPlayer) {
+      existingPlayer.remove();
+    }
+    serversContainer.prepend(player);
+  } else {
+    // Move player to top if it exists
     serversContainer.prepend(player);
   }
   
@@ -958,12 +1024,20 @@ window.playStream = async function(proxiedUrl, title) {
   
   console.log('Playing stream:', proxiedUrl);
   
-  // Create or reuse video player container
+  // Create or reuse video player container - prepend to keep server list visible
   let player = document.getElementById('videoPlayer');
   if (!player) {
     player = document.createElement('div');
     player.id = 'videoPlayer';
     player.style.marginBottom = '20px';
+    // Prepend to keep server list visible
+    const existingPlayer = serversContainer.querySelector('#videoPlayer');
+    if (existingPlayer) {
+      existingPlayer.remove();
+    }
+    serversContainer.prepend(player);
+  } else {
+    // Move player to top if it exists
     serversContainer.prepend(player);
   }
   

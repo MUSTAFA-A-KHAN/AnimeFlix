@@ -1,7 +1,7 @@
 import './style.css';
 
 // API Configuration - Prioritize local development server, fallback to external API
-const API_LOCAL = 'https://ttt-mauve-rho.vercel.app';
+const API_LOCAL = 'http://localhost:3000';
 const API_EXTERNAL = 'https://ttt-mauve-rho.vercel.app';
 
 // Auto-detect API base - try local first, fallback to external
@@ -131,6 +131,181 @@ let currentPlayerData = null;
 let customVideoPlayer = null;
 let customVideoInstance = null;
 let customSubtitles = []; // Store custom uploaded subtitles
+
+// ============================================
+// VIDEO PLAYER TOGGLE STATE
+// ============================================
+
+// Get saved preference or default to custom player
+function getUseCustomPlayer() {
+  const saved = localStorage.getItem('useCustomPlayer');
+  return saved === null ? true : saved === 'true';
+}
+
+// Save player preference
+function setUseCustomPlayer(value) {
+  localStorage.setItem('useCustomPlayer', String(value));
+  updateToggleUI();
+}
+
+// Global function to handle player toggle
+window.handlePlayerToggle = function() {
+  const checkbox = document.getElementById('playerToggle');
+  if (checkbox) {
+    // Toggle the checkbox state
+    checkbox.checked = !checkbox.checked;
+    const isCustom = checkbox.checked;
+    setUseCustomPlayer(isCustom);
+    console.log('Toggle changed to:', isCustom ? 'Custom' : 'Default');
+    
+    // Reload video if currently playing
+    setTimeout(() => {
+      reloadCurrentVideo();
+    }, 50);
+  }
+};
+
+// Function to reload current video with the selected player type
+function reloadCurrentVideo() {
+  // Try to reload for hianime-scrap
+  if (window.hianimeScrapServerData) {
+    const activeTab = document.querySelector('.server-tab.active');
+    if (activeTab) {
+      const typeText = activeTab.textContent.toLowerCase();
+      const type = typeText.includes('sub') ? 'sub' : typeText.includes('dub') ? 'dub' : 'raw';
+      const serverId = window.hianimeScrapServerData[type]?.[0]?.id;
+      if (serverId) {
+        playHianimeScrapStream(serverId, type, activeTab.textContent);
+        return;
+      }
+    }
+  }
+  
+  // Try to reload for animekai/animepahe
+  const activeServerBtn = document.querySelector('.server-option .play-btn');
+  if (activeServerBtn) {
+    const onclickAttr = activeServerBtn.getAttribute('onclick');
+    if (onclickAttr) {
+      const match = onclickAttr.match(/playStream\(['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]/);
+      if (match) {
+        const proxiedUrl = match[1];
+        const serverName = match[2];
+        playStream(proxiedUrl, serverName);
+        return;
+      }
+    }
+  }
+}
+
+// Update toggle UI to reflect current state
+function updateToggleUI() {
+  const toggle = document.getElementById('playerToggle');
+  if (toggle) {
+    const isCustom = getUseCustomPlayer();
+    toggle.checked = isCustom;
+    
+    // Update labels
+    const customLabel = toggle.parentElement.querySelector('.toggle-custom');
+    const defaultLabel = toggle.parentElement.querySelector('.toggle-default');
+    if (customLabel && defaultLabel) {
+      customLabel.style.opacity = isCustom ? '1' : '0.5';
+      defaultLabel.style.opacity = isCustom ? '0.5' : '1';
+    }
+  }
+}
+
+// ============================================
+// DEFAULT VIDEO PLAYER (Browser Native)
+// ============================================
+
+function createDefaultVideoPlayer(options) {
+  const { videoUrl = '', title = 'Video' } = options;
+  
+  const player = document.createElement('div');
+  player.className = 'default-video-player';
+  player.id = 'defaultVideoPlayer';
+  
+  player.innerHTML = `
+    <video id="defaultVideo" preload="metadata" controls playsinline>
+      <source src="${videoUrl}" type="application/vnd.apple.mpegurl">
+    </video>
+    <div class="default-player-info">
+      <p>Using default browser player</p>
+      <p class="video-title">${title}</p>
+    </div>
+  `;
+  
+  return player;
+}
+
+function initDefaultVideoPlayer(playerElement, options = {}) {
+  const video = playerElement.querySelector('#defaultVideo');
+  const videoUrl = options.videoUrl || '';
+  
+  if (videoUrl) {
+    // Check if browser supports HLS natively
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = videoUrl;
+    } else {
+      // Use HLS.js for browsers that don't support HLS natively
+      initHlsForDefaultPlayer(video, videoUrl);
+    }
+  }
+  
+  return {
+    element: playerElement,
+    video,
+    loadVideo: (url) => {
+      if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = url;
+      } else {
+        initHlsForDefaultPlayer(video, url);
+      }
+    }
+  };
+}
+
+function initHlsForDefaultPlayer(video, videoUrl) {
+  try {
+    if (!window.Hls) {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js';
+      script.onload = () => initHlsInternalDefault(video, videoUrl);
+      script.onerror = () => {
+        console.error('Failed to load HLS.js');
+      };
+      document.head.appendChild(script);
+    } else {
+      initHlsInternalDefault(video, videoUrl);
+    }
+  } catch (error) {
+    console.warn('HLS playback failed:', error);
+  }
+}
+
+function initHlsInternalDefault(video, videoUrl) {
+  if (!window.Hls || !video) return;
+  
+  const hls = new window.Hls({
+    enableWorker: true,
+    lowLatencyMode: true
+  });
+  
+  hls.loadSource(videoUrl);
+  hls.attachMedia(video);
+  
+  hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+    console.log('HLS manifest parsed for default player');
+  });
+  
+  hls.on(window.Hls.Events.ERROR, (event, data) => {
+    console.error('HLS error in default player:', data);
+  });
+}
+
+// ============================================
+// END DEFAULT VIDEO PLAYER
+// ============================================
 let subtitleSearchResults = []; // Store cloud search results
 
 // ============================================
@@ -2297,7 +2472,22 @@ function displayEpisodes(episodes) {
 
 // Function to display hianime-scrap servers with sub/dub/raw tabs
 function displayHianimeScrapServers(data, episodeNumber, episodeId) {
-  serversContainer.innerHTML = `<h3>Servers for Episode ${episodeNumber}</h3>`;
+  const isCustom = getUseCustomPlayer();
+  
+  // Add toggle switch header
+  serversContainer.innerHTML = `
+    <div class="player-toggle-header">
+      <h3>Servers for Episode ${episodeNumber}</h3>
+      <div class="player-toggle">
+        <span class="toggle-custom">🎬 Custom</span>
+        <label class="toggle-switch" onclick="handlePlayerToggle()">
+          <input type="checkbox" id="playerToggle" ${isCustom ? 'checked' : ''}>
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="toggle-default">🌐 Default</span>
+      </div>
+    </div>
+  `;
   
   // Handle hianime-scrap format: {success, data: {episode, sub: [...], dub: [...], raw: [...]}}
   if (!data || !data.success || !data.data) {
@@ -2451,6 +2641,7 @@ function displayHianimeScrapStream(streamData, serverName) {
   const tracks = streamData.tracks || [];
   const intro = streamData.intro || { start: 0, end: 0 };
   const outro = streamData.outro || { start: 0, end: 0 };
+  const useCustom = getUseCustomPlayer();
   
   if (!videoUrl) {
     // Show error but keep server list visible
@@ -2464,10 +2655,14 @@ function displayHianimeScrapStream(streamData, serverName) {
     return;
   }
   
-  // Remove existing custom player if any
-  const existingPlayer = document.getElementById('customVideoPlayer');
-  if (existingPlayer) {
-    existingPlayer.remove();
+  // Remove existing players
+  const existingCustomPlayer = document.getElementById('customVideoPlayer');
+  if (existingCustomPlayer) {
+    existingCustomPlayer.remove();
+  }
+  const existingDefaultPlayer = document.getElementById('defaultVideoPlayer');
+  if (existingDefaultPlayer) {
+    existingDefaultPlayer.remove();
   }
   
   // Create video player container - prepend to keep server list visible below
@@ -2500,24 +2695,39 @@ function displayHianimeScrapStream(streamData, serverName) {
     ${metaInfo}
   `;
   
-  // Create and append custom video player
-  const player = createCustomVideoPlayer({
-    videoUrl,
-    title: serverName,
-    tracks,
-    intro,
-    outro
-  });
-  
-  playerContainer.appendChild(player);
-  
-  // Initialize the custom video player
-  customVideoInstance = initCustomVideoPlayer(player, {
-    videoUrl,
-    tracks,
-    intro,
-    outro
-  });
+  if (useCustom) {
+    // Create and append custom video player
+    const player = createCustomVideoPlayer({
+      videoUrl,
+      title: serverName,
+      tracks,
+      intro,
+      outro
+    });
+    
+    playerContainer.appendChild(player);
+    
+    // Initialize the custom video player
+    customVideoInstance = initCustomVideoPlayer(player, {
+      videoUrl,
+      tracks,
+      intro,
+      outro
+    });
+  } else {
+    // Create and append default video player
+    const player = createDefaultVideoPlayer({
+      videoUrl,
+      title: serverName
+    });
+    
+    playerContainer.appendChild(player);
+    
+    // Initialize the default video player
+    customVideoInstance = initDefaultVideoPlayer(player, {
+      videoUrl
+    });
+  }
   
   // Set up episode navigation callbacks for hianime-scrap
   const currentIndex = window.hianimeScrapServerData?.currentEpisodeIndex ?? -1;
@@ -2609,7 +2819,22 @@ function initHls(video, videoUrl) {
 
 // Function to display servers/streaming options (for animekai and animepahe)
 function displayServers(data, episodeNumber) {
-  serversContainer.innerHTML = `<h3>Servers for Episode ${episodeNumber}</h3>`;
+  const isCustom = getUseCustomPlayer();
+  
+  // Add toggle switch header
+  serversContainer.innerHTML = `
+    <div class="player-toggle-header">
+      <h3>Servers for Episode ${episodeNumber}</h3>
+      <div class="player-toggle">
+        <span class="toggle-custom">🎬 Custom</span>
+        <label class="toggle-switch" onclick="handlePlayerToggle()">
+          <input type="checkbox" id="playerToggle" ${isCustom ? 'checked' : ''}>
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="toggle-default">🌐 Default</span>
+      </div>
+    </div>
+  `;
   
   // Normalize server data
   let servers = [];
@@ -2696,10 +2921,16 @@ window.playStream = async function(proxiedUrl, title) {
   
   console.log('Playing stream:', proxiedUrl);
   
-  // Remove existing custom player if any
-  const existingPlayer = document.getElementById('customVideoPlayer');
-  if (existingPlayer) {
-    existingPlayer.remove();
+  const useCustom = getUseCustomPlayer();
+  
+  // Remove existing players
+  const existingCustomPlayer = document.getElementById('customVideoPlayer');
+  if (existingCustomPlayer) {
+    existingCustomPlayer.remove();
+  }
+  const existingDefaultPlayer = document.getElementById('defaultVideoPlayer');
+  if (existingDefaultPlayer) {
+    existingDefaultPlayer.remove();
   }
   
   // Create video player container - prepend to keep server list visible
@@ -2720,24 +2951,39 @@ window.playStream = async function(proxiedUrl, title) {
   // Add header with title
   playerContainer.innerHTML = `<h3>Now Playing: ${title}</h3>`;
   
-  // Create and append custom video player
-  const player = createCustomVideoPlayer({
-    videoUrl: proxiedUrl,
-    title: title,
-    tracks: [],
-    intro: { start: 0, end: 0 },
-    outro: { start: 0, end: 0 }
-  });
-  
-  playerContainer.appendChild(player);
-  
-  // Initialize the custom video player
-  customVideoInstance = initCustomVideoPlayer(player, {
-    videoUrl: proxiedUrl,
-    tracks: [],
-    intro: { start: 0, end: 0 },
-    outro: { start: 0, end: 0 }
-  });
+  if (useCustom) {
+    // Create and append custom video player
+    const player = createCustomVideoPlayer({
+      videoUrl: proxiedUrl,
+      title: title,
+      tracks: [],
+      intro: { start: 0, end: 0 },
+      outro: { start: 0, end: 0 }
+    });
+    
+    playerContainer.appendChild(player);
+    
+    // Initialize the custom video player
+    customVideoInstance = initCustomVideoPlayer(player, {
+      videoUrl: proxiedUrl,
+      tracks: [],
+      intro: { start: 0, end: 0 },
+      outro: { start: 0, end: 0 }
+    });
+  } else {
+    // Create and append default video player
+    const player = createDefaultVideoPlayer({
+      videoUrl: proxiedUrl,
+      title: title
+    });
+    
+    playerContainer.appendChild(player);
+    
+    // Initialize the default video player
+    customVideoInstance = initDefaultVideoPlayer(player, {
+      videoUrl: proxiedUrl
+    });
+  }
   
   // Set up episode navigation callbacks for animekai/animepahe
   const currentIndex = currentEpisodes.findIndex(ep => {

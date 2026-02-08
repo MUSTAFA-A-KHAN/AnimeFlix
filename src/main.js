@@ -2121,76 +2121,116 @@ function displayResults(results) {
   }).join('');
 }
 
+// Function to fetch full anime info from info API
+async function fetchAnimeInfo(animeId) {
+  const provider = providerSelect.value;
+  const infoUrl = buildUrl(provider, 'info', { id: animeId });
+  
+  console.log('Fetching anime info from:', infoUrl);
+  
+  try {
+    const data = await safeFetch(infoUrl);
+    
+    // Handle hianime-scrap format: {success, data: {...anime details...}}
+    if (data && data.data && provider === 'hianime-scrap') {
+      return {
+        ...data.data,
+        id: data.data.id || animeId,
+        title: data.data.title,
+        poster: data.data.poster,
+        image: data.data.poster,
+        synopsis: data.data.synopsis || data.data.description || '',
+        alternativeTitle: data.data.alternativeTitle || '',
+        rating: data.data.rating || '',
+        type: data.data.type,
+        is18Plus: data.data.is18Plus || false,
+        aired: data.data.aired || {},
+        premiered: data.data.premiered || '',
+        duration: data.data.duration || '',
+        status: data.data.status,
+        MAL_score: data.data.MAL_score || '',
+        genres: data.data.genres || [],
+        studios: data.data.studios || [],
+        producers: data.data.producers || [],
+        moreSeasons: data.data.moreSeasons || [],
+        related: data.data.related || [],
+        mostPopular: data.data.mostPopular || [],
+        recommended: data.data.recommended || [],
+        japanese: data.data.japanese || '',
+        episodes: {
+          sub: data.data.episodes?.sub || 0,
+          dub: data.data.episodes?.dub || 0,
+          eps: data.data.episodes?.eps || 0
+        }
+      };
+    }
+    
+    // Handle other provider formats
+    return normalizeAnimeData(data, animeId, provider);
+  } catch (error) {
+    console.error('Error fetching anime info:', error);
+    return null;
+  }
+}
+
+// Function to fetch episodes list from episodes API
+async function fetchAnimeEpisodes(animeId) {
+  const provider = providerSelect.value;
+  const episodesUrl = buildUrl(provider, 'episodes', { id: animeId });
+  
+  console.log('Fetching episodes from:', episodesUrl);
+  
+  try {
+    const data = await safeFetch(episodesUrl);
+    return extractEpisodes(data, provider);
+  } catch (error) {
+    console.error('Error fetching episodes:', error);
+    return [];
+  }
+}
+
 // Function to select anime and fetch details
 async function selectAnime(id, titleParam) {
   if (!id) {
     alert('Invalid anime ID');
     return;
-  }  
-  const provider = providerSelect.value;
-
-  console.log(provider)
+  }
   
-  // For hianime-scrap, retrieve anime data from cache
+  const provider = providerSelect.value;
   const isHianimeScrap = provider === 'hianime-scrap';
-  const animeDataFromSearch = isHianimeScrap ? hianimeScrapAnimeCache[id] : null;
   
   try {
-    detailsContainer.innerHTML = '<p>Loading details...</p>';
+    // Show loading state
+    detailsContainer.innerHTML = '<p class="loading-details" style="padding: 40px; text-align: center;"><span class="loading-spinner"></span> Loading anime details...</p>';
     
-    // For hianime-scrap, use data from search results instead of info API
-    if (isHianimeScrap && animeDataFromSearch) {
+    // For hianime-scrap: ALWAYS fetch from info API to get complete details
+    // This ensures home page cards get full info (synopsis, genres, etc.)
+    if (isHianimeScrap) {
+      console.log('Fetching full anime info from info API for hianime-scrap');
+      
+      // Fetch full anime info from info API
+      const animeInfo = await fetchAnimeInfo(id);
+      
+      if (!animeInfo) {
+        throw new Error('Failed to fetch anime info');
+      }
+      
+      // Fetch episodes list from episodes API
+      const episodes = await fetchAnimeEpisodes(id);
+      
+      // Combine data
       const animeData = {
-        ...animeDataFromSearch,
-        id: animeDataFromSearch.id || id,
+        ...animeInfo,
+        episodes: episodes.length > 0 ? episodes : animeInfo.episodes,
         __provider: provider
       };
       
-      // Try to fetch episodes list from API
-      try {
-        const episodesUrl = buildUrl(provider, 'episodes', { id });
-        console.log('Episodes URL:', episodesUrl);
-        
-        const episodesData = await safeFetch(episodesUrl);
-        animeData.episodes = extractEpisodes(episodesData, provider);
-        
-        // If we got episodes from API, display them
-        if (animeData.episodes.length > 0) {
-          displayAnimeDetails(animeData, animeDataFromSearch.title);
-          return;
-        }
-      } catch (epError) {
-        console.warn('Could not fetch episodes for hianime-scrap:', epError);
-      }
-      
-      // If episodes API failed or returned empty, generate from episode count
-      // as fallback
-      const epCount = animeData.episodes?.eps || 
-                      animeData.episodes?.sub || 
-                      animeData.episodes?.dub || 
-                      animeData.episodes?.total ||
-                      animeData.episodes?.episodeCount || 
-                      animeData.episodes?.totalEpisodes ||
-                      0;
-      
-      if (epCount > 0) {
-        // Generate episode list from count
-        animeData.episodes = Array.from({ length: Math.min(epCount, 500) }, (_, i) => ({
-          id: `${id}::ep=${i + 1}`,  // Use format that matches API
-          number: i + 1,
-          title: `Episode ${i + 1}`,
-          isFiller: false
-        }));
-        console.log(`Generated ${epCount} episode buttons from count`);
-      } else {
-        animeData.episodes = [];
-      }
-      
-      displayAnimeDetails(animeData, animeDataFromSearch.title);
+      // Display the complete anime details
+      displayAnimeDetails(animeData, animeInfo.title);
       return;
     }
     
-    // For other providers, fetch info from API
+    // For other providers, use existing logic
     const title = typeof titleParam === 'string' ? titleParam : null;
     
     const infoUrl = buildUrl(provider, 'info', { id });

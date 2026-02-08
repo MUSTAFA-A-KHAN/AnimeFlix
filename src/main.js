@@ -10,6 +10,17 @@ const API_ROOT = API_LOCAL;
 
 // Provider configuration for different anime providers
 const PROVIDERS = {
+ 'hianime-scrap': {
+    base: 'https://api.animo.qzz.io/api/v1',
+    templates: {
+      search: 'https://hianimeapi-6uju.onrender.com/api/v1/search?keyword={query}&page=1',
+      info: 'https://hianimeapi-6uju.onrender.com/api/v1/anime/{id}',
+      episodes: 'https://hianimeapi-6uju.onrender.com/api/v1/episodes/{id}',
+      servers: 'https://hianimeapi-6uju.onrender.com/api/v1/servers/id={id}',
+      stream: 'https://api.animo.qzz.io/api/v1/stream?id={id}&type={type}&server={server}',
+      home: 'https://hianimeapi-6uju.onrender.com/api/v1/home'
+    }
+  },
   animekai: {
     base: API_ROOT + '/anime/animekai',  // Note: using /anime/hianime endpoint
     templates: {
@@ -29,18 +40,8 @@ const PROVIDERS = {
       watch: API_ROOT + '/anime/animepahe/watch?episodeId={episodeId}',
       home: API_ROOT + '/anime/animekai/new-releases'
     }
-  },
-  'hianime-scrap': {
-    base: 'https://api.animo.qzz.io/api/v1',
-    templates: {
-      search: 'https://hianimeapi-6uju.onrender.com/api/v1/search?keyword={query}&page=1',
-      info: 'https://api.animo.qzz.io/api/v1/animes/{id}',
-      episodes: 'https://hianimeapi-6uju.onrender.com/api/v1/episodes/{id}',
-      servers: 'https://hianimeapi-6uju.onrender.com/api/v1/servers/id={id}',
-      stream: 'https://api.animo.qzz.io/api/v1/stream?id={id}&type={type}&server={server}',
-      home: 'https://hianimeapi-6uju.onrender.com/api/v1/home'
-    }
   }
+ 
 };
 
 // Proxy for streaming (NekoProxy) - used for bypassing CORS and geo-restrictions
@@ -2125,9 +2126,10 @@ async function selectAnime(id, titleParam) {
   if (!id) {
     alert('Invalid anime ID');
     return;
-  }
-  
+  }  
   const provider = providerSelect.value;
+
+  console.log(provider)
   
   // For hianime-scrap, retrieve anime data from cache
   const isHianimeScrap = provider === 'hianime-scrap';

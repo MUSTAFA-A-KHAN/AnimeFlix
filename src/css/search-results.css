@@ -1,0 +1,253 @@
+/* ============================================
+   SEARCH RESULTS & ANIME CARDS
+   ============================================ */
+
+/* Results Grid */
+#results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 25px;
+  margin-bottom: 40px;
+  animation: fadeIn 0.8s ease-out 0.4s both;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.6s ease-out forwards;
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+/* Skeleton Card */
+.skeleton-card {
+  background: var(--glass-bg);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.skeleton-img {
+  width: 100%;
+  height: 220px;
+}
+
+.skeleton-text {
+  height: 20px;
+  margin: 10px;
+  border-radius: 4px;
+}
+
+.skeleton-text.short {
+  width: 60%;
+}
+
+/* ============================================
+   ANIME CARDS
+   ============================================ */
+
+.anime-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  border: 1px solid var(--glass-border);
+  position: relative;
+}
+
+.anime-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), #ff6b6b, #feca57);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.anime-card:hover {
+  transform: translateY(-10px) scale(1.02);
+  border-color: var(--accent);
+  box-shadow: 0 20px 40px rgba(233, 69, 96, 0.3);
+}
+
+.anime-card:hover::before {
+  opacity: 1;
+}
+
+.anime-card img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.anime-card:hover img {
+  transform: scale(1.1);
+}
+
+.anime-card-content {
+  padding: 15px;
+}
+
+.anime-card h3 {
+  font-size: 1em;
+  text-align: center;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.anime-card p {
+  text-align: center;
+  color: var(--text-light);
+  font-size: 0.85em;
+}
+
+/* Status Badges */
+.status-badges {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.badge {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.7em;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.badge-sub {
+  background: rgba(0, 210, 106, 0.2);
+  color: var(--success);
+  border: 1px solid var(--success);
+}
+
+.badge-dub {
+  background: rgba(255, 193, 7, 0.2);
+  color: var(--warning);
+  border: 1px solid var(--warning);
+}
+
+.badge-raw {
+  background: rgba(23, 162, 184, 0.2);
+  color: var(--info);
+  border: 1px solid var(--info);
+}
+
+.badge-filler {
+  background: rgba(255, 204, 0, 0.2);
+  color: #ffcc00;
+  border: 1px solid #ffcc00;
+}
+
+/* Tooltip */
+.tooltip {
+  position: relative;
+}
+
+.tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  font-size: 0.8em;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.tooltip:hover::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(-5px);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  #results {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 15px;
+  }
+
+  .anime-card img {
+    height: 180px;
+  }
+}
+
+@media (max-width: 480px) {
+  #app {
+    padding: 15px;
+  }
+
+  .search-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #searchInput {
+    min-width: 100%;
+  }
+
+  #searchBtn {
+    width: 100%;
+  }
+
+  #providerSelect {
+    width: 100%;
+  }
+
+  .anime-card img {
+    height: 180px;
+  }
+}
+

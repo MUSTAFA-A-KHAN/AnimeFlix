@@ -1,4 +1,5 @@
 import './style.css';
+import './js/smooth-player.js';
 
 // API Configuration - Prioritize local development server, fallback to external API
 const API_LOCAL = 'http://localhost:3000';
@@ -34,8 +35,8 @@ const PROVIDERS = {
     templates: {
       search: 'https://hianimeapi-6uju.onrender.com/api/v1/search?keyword={query}&page=1',
       info: 'https://api.animo.qzz.io/api/v1/animes/{id}',
-      episodes: 'https://api.animo.qzz.io/api/v1/episodes/{id}',
-      servers: 'https://api.animo.qzz.io/api/v1/servers?id={id}',
+      episodes: 'https://hianimeapi-6uju.onrender.com/api/v1/episodes/{id}',
+      servers: 'https://hianimeapi-6uju.onrender.com/api/v1/servers/id={id}',
       stream: 'https://api.animo.qzz.io/api/v1/stream?id={id}&type={type}&server={server}',
       home: 'https://hianimeapi-6uju.onrender.com/api/v1/home'
     }
@@ -475,13 +476,14 @@ function detectLanguage(filename) {
 async function searchCloudSubtitles(query) {
   try {
     // Using Open Subtitles API (free tier) - with proper User-Agent header
-    const response = await safeFetch(`https://api.opensubtitles.com/api/v1/subtitles?query=${encodeURIComponent(query)}&languages=en`, {
-      headers: {
-        'Api-Key': 'Y2xvdWQtMTYzODU2MkAxNzMxNjM2NjI3OmRhMWQxNDM0YWFkZjM0ZGU4NzgwMjhhZTk0OWE0YzU0',
-        'User-Agent': 'AnimeFlix v1.0.0',
-        'Accept': 'application/json'
-      }
-    });
+    const response = await safeFetch(`http://localhost:3000/anime/animesama/watch?episodeId={episodeId}=${encodeURIComponent(query)}`, 
+    {});
+      // headers: {
+      //   // 'X-API-Key': 'Y2xvdWQtMTYzODU2MkAxNzMxNjM2NjI3OmRhMWQxNDM0YWFkZjM0ZGU4NzgwMjhhZTk0OWE0YzU0',
+      //   // 'User-Agent': 'AnimeFlix v1.0.0',
+      //   // 'Accept': 'application/json'
+      // }
+    
     
     if (response && response.data && Array.isArray(response.data)) {
       subtitleSearchResults = response.data.slice(0, 10); // Limit to 10 results
@@ -784,12 +786,18 @@ function initCustomVideoPlayer(playerElement, options = {}) {
   }
 
   function showControls() {
-    playerElement.classList.add('show-controls');
-    clearTimeout(controlsTimeout);
-    if (isPlaying) {
-      controlsTimeout = setTimeout(() => {
-        playerElement.classList.remove('show-controls');
-      }, 3000);
+    // Use smooth player module for better fullscreen support
+    if (window.smoothPlayer && window.smoothPlayer.showControlsSmooth) {
+      window.smoothPlayer.showControlsSmooth(playerElement);
+    } else {
+      // Fallback to local implementation
+      playerElement.classList.add('show-controls');
+      clearTimeout(controlsTimeout);
+      if (isPlaying) {
+        controlsTimeout = setTimeout(() => {
+          playerElement.classList.remove('show-controls');
+        }, 3000);
+      }
     }
   }
 
@@ -1428,7 +1436,14 @@ function initCustomVideoPlayer(playerElement, options = {}) {
   });
 
   playerElement.addEventListener('mousemove', showControls);
-  playerElement.addEventListener('mouseleave', () => { if (isPlaying) playerElement.classList.remove('show-controls'); });
+  playerElement.addEventListener('mouseleave', () => { 
+    // Use smooth player module for better fullscreen support
+    if (window.smoothPlayer && window.smoothPlayer.hideControlsSmooth && isPlaying) {
+      window.smoothPlayer.hideControlsSmooth(playerElement);
+    } else if (isPlaying) {
+      playerElement.classList.remove('show-controls'); 
+    }
+  });
 
   video.addEventListener('timeupdate', () => {
     const tracks = video.textTracks;
@@ -2889,7 +2904,7 @@ function displayServers(data, episodeNumber) {
               <p><strong>${sourceQuality}</strong></p>
               <p><a href="${sourceUrl}" target="_blank" rel="noopener noreferrer">Open Original</a></p>
               <p><a href="${sourceProxied}" target="_blank" rel="noopener noreferrer">Open via Proxy</a></p>
-              <p><button class="play-btn" onclick="playStream('${sourceProxied.replace(/'/g, "\\'")}', '${sourceQuality.replace(/'/g, "\\'")}')">▶ Play</button></p>
+              <p><button class="play-btn" onclick="playStream('${sourceProxied}')">▶ Play</button></p>
             `;
           }
         });

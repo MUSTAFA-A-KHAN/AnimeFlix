@@ -1,7 +1,7 @@
 import './style.css';
 
 // API Configuration - Prioritize local development server, fallback to external API
-const API_LOCAL = 'http://localhost:3000';
+const API_LOCAL = 'https://ttt-mauve-rho.vercel.app';
 const API_EXTERNAL = 'https://ttt-mauve-rho.vercel.app';
 
 // Auto-detect API base - try local first, fallback to external
